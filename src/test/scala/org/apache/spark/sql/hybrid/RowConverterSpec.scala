@@ -1,6 +1,7 @@
 package org.apache.spark.sql.hybrid
 
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should

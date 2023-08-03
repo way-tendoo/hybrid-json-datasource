@@ -1,17 +1,32 @@
 package org.apache.spark.sql.hybrid
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.catalyst.json.{ JSONOptions, JacksonGenerator }
+import org.apache.spark.sql.catalyst.util.{ resourceToString, CaseInsensitiveMap }
 import org.apache.spark.sql.types.StructType
 
-import scala.util.parsing.json.JSONObject
+import java.io.CharArrayWriter
+import java.util.TimeZone
 
 class RowConverter(dataType: StructType) {
 
+  private val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)
+
   def toJsonString(input: Iterator[InternalRow]): Iterator[String] = {
-    input.map { ir =>
-      val row = new GenericRowWithSchema(ir.toSeq(dataType).toArray, dataType)
-      JSONObject(row.getValuesMap(row.schema.fieldNames)).toString()
+    val writer     = new CharArrayWriter()
+    val jacksonGen = new JacksonGenerator(dataType, writer, emptyOptions)
+
+    new Iterator[String] {
+      override def hasNext: Boolean = input.hasNext
+
+      override def next(): String = {
+        jacksonGen.write(input.next())
+        jacksonGen.flush()
+
+        val json = writer.toString
+        if (hasNext) writer.reset() else jacksonGen.close()
+        json
+      }
     }
   }
 }
