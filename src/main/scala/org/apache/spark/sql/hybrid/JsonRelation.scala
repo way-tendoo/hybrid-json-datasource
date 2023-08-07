@@ -1,11 +1,9 @@
 package org.apache.spark.sql.hybrid
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.sources.{ BaseRelation, TableScan }
+import org.apache.spark.sql.sources.{BaseRelation, TableScan}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{ Row, SQLContext, SparkSession }
-
-import scala.concurrent.ExecutionContextExecutor
+import org.apache.spark.sql.{Row, SQLContext, SparkSession}
 
 class JsonRelation(dataType: StructType, objectName: String, mongoUri: String) extends BaseRelation with TableScan {
 
