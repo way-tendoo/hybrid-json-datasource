@@ -10,7 +10,7 @@ import org.apache.spark.unsafe.types.UTF8String
 
 import java.util.TimeZone
 
-class JsonParser(schema: StructType) {
+class JsonParser(schema: StructType) extends Serializable {
 
   private val jsonParser = {
     val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)

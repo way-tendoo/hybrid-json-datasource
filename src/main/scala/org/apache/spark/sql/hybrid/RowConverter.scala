@@ -8,7 +8,7 @@ import org.apache.spark.sql.types.StructType
 import java.io.CharArrayWriter
 import java.util.TimeZone
 
-class RowConverter(dataType: StructType) {
+class RowConverter(dataType: StructType) extends Serializable {
 
   private val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)
 
