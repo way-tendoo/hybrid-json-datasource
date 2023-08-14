@@ -1,14 +1,14 @@
 package org.apache.spark.sql.hybrid
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.json.{ JSONOptions, JacksonGenerator }
-import org.apache.spark.sql.catalyst.util.{ resourceToString, CaseInsensitiveMap }
+import org.apache.spark.sql.catalyst.json.{JSONOptions, JacksonGenerator}
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.types.StructType
 
 import java.io.CharArrayWriter
 import java.util.TimeZone
 
-class RowConverter(dataType: StructType) extends Serializable {
+final class RowConverter(dataType: StructType) extends Serializable {
 
   private val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)
 

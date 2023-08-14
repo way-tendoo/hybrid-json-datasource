@@ -1,29 +1,24 @@
 package org.apache.spark.sql.hybrid
 
-import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.execution.streaming.{Sink, Source}
+import org.apache.spark.sql.hybrid.Const.FieldsName._
+import org.apache.spark.sql.hybrid.Const.TablesName.SchemaIndex
 import org.apache.spark.sql.hybrid.Syntax._
-import org.apache.spark.sql.sources.{
-  BaseRelation,
-  CreatableRelationProvider,
-  DataSourceRegister,
-  RelationProvider,
-  SchemaRelationProvider
-}
-import org.apache.spark.sql.types.{ LongType, StructType }
-import org.apache.spark.sql.{ DataFrame, SQLContext, SaveMode }
-import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.{ Document, MongoClient }
+import org.apache.spark.sql.sources._
+import org.apache.spark.sql.streaming.OutputMode
+import org.apache.spark.sql.types.{LongType, StructType}
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
+import org.mongodb.scala._
 
-import java.nio.file.Paths
-import java.util.UUID
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, ExecutionContext, ExecutionContextExecutor, Future }
-import scala.util.Try
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
 
-class HybridJsonProvider
+final class HybridJsonProvider
     extends CreatableRelationProvider
     with RelationProvider
     with DataSourceRegister
+    with StreamSinkProvider
+    with StreamSourceProvider
     with SchemaRelationProvider
     with Serializable {
 
@@ -35,89 +30,62 @@ class HybridJsonProvider
     params: Map[String, String],
     data: DataFrame
   ): BaseRelation = {
-    val mongoUri   = getMongoUri
-    val path       = params.getMandatory("path")
-    val objectName = params.getMandatory("objectName")
-    val schema     = data.schema.asNullable.json
-    val converter  = new RowConverter(data.schema)
-    FileIO.createDirectoryIfNotExist(path)
-    data.queryExecution.toRdd.foreachPartition { ir =>
-      processPartition(converter)(ir, mongoUri, objectName, path)
-    }
-    for {
-      schemaRef <- FileIO.withClosable(MongoClient(mongoUri))(
-                    _.find("schema_index", Document("objectName" -> objectName))
-                      .filter(equal("schemaRef", schema))
-                      .headOption()
-                  )
-      _ <- if (schemaRef.isEmpty) {
-            FileIO.withClosable(MongoClient(mongoUri))(
-              _.insertOne(
-                "schema_index",
-                Document(
-                  "objectName"   -> objectName,
-                  "schemaRef"    -> schema,
-                  "commitMillis" -> System.currentTimeMillis()
-                )
-              )
-            )
-          } else Future.successful()
-    } yield {}
-
+    val ctx = HybridJsonContext(params)
+    new HybridJsonSink().write(data, ctx)
     EmptyRelation()
   }
 
   override def createRelation(sqlContext: SQLContext, params: Map[String, String]): BaseRelation = {
-    val objectName = params.getMandatory("objectName")
-    val schema     = inferSchema(getMongoUri, objectName)
-    new JsonRelation(schema, objectName, getMongoUri)
+    val ctx    = HybridJsonContext(params)
+    val schema = inferSchema(ctx)
+    new JsonRelation(schema, ctx)
   }
 
   override def createRelation(sqlContext: SQLContext, params: Map[String, String], schema: StructType): BaseRelation = {
-    val objectName = params.getMandatory("objectName")
-    new JsonRelation(schema, objectName, getMongoUri)
+    val ctx = HybridJsonContext(params)
+    new JsonRelation(schema, ctx)
   }
 
-  private def getMongoUri: String = {
-    Option(System.getenv("MONGO_URI"))
-      .getOrElse(throw new IllegalArgumentException(s"System env: `MONGO_URI` must be specified"))
+  override def sourceSchema(
+    sqlContext: SQLContext,
+    schema: Option[StructType],
+    providerName: String,
+    params: Map[String, String]
+  ): (String, StructType) = {
+    val ctx = HybridJsonContext(params)
+    providerName -> schema.getOrElse(inferSchema(ctx))
   }
 
-  private def inferSchema(mongoUri: String, objectName: String): StructType = {
+  override def createSource(
+    sqlContext: SQLContext,
+    metadataPath: String,
+    schema: Option[StructType],
+    providerName: String,
+    params: Map[String, String]
+  ): Source = {
+    val ctx = HybridJsonContext(params)
+    new HybridJsonStreamSource(schema.getOrElse(inferSchema(ctx)), ctx)
+  }
+
+  override def createSink(
+    sqlContext: SQLContext,
+    params: Map[String, String],
+    partitionColumns: Seq[String],
+    outputMode: OutputMode
+  ): Sink = {
+    val ctx = HybridJsonContext(params)
+    new HybridJsonStreamSink(ctx)
+  }
+
+  private def inferSchema(context: HybridJsonContext): StructType = {
     val schemaRefs = FileIO
-      .withClosable(MongoClient(mongoUri))(_.find("schema_index", Document("objectName" -> objectName)))
-      .map(_.get("schemaRef").map(_.asString().getValue))
+      .withClosable(MongoClient(context.mongoUri()))(_.find(SchemaIndex, Document(ObjectName -> context.objectName())))
+      .map(_.get(SchemaRef).map(_.asString().getValue))
       .toFuture()
       .map(_.flatMap(_.toSeq))
-    val schema = new StructType().add("__commitMillis", LongType)
+    val schema = new StructType().add(s"__$CommitMillis", LongType)
     Await.result(schemaRefs, 10.seconds).map(StructType.fromString).foldLeft(schema) {
       case (acc, schema) => acc.merge(schema)
-    }
-  }
-
-  private def processPartition(
-    converter: RowConverter
-  )(
-    ir: Iterator[InternalRow],
-    mongoUri: String,
-    objectName: String,
-    path: String
-  ): Unit = {
-    val json     = converter.toJsonString(ir)
-    val fullPath = Paths.get(path, s"${UUID.randomUUID().toString}.json").toString
-    Try {
-      FileIO.write(fullPath, json)
-    }.foreach { _ =>
-      FileIO.withClosable(MongoClient(mongoUri))(
-        _.insertOne(
-          "file_index",
-          Document(
-            "objectName"   -> objectName,
-            "path"         -> fullPath,
-            "commitMillis" -> System.currentTimeMillis()
-          )
-        )
-      )
     }
   }
 
