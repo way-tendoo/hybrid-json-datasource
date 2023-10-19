@@ -3,7 +3,6 @@ package org.apache.spark.sql.hybrid
 import org.apache.spark.sql.execution.streaming.{Sink, Source}
 import org.apache.spark.sql.hybrid.Const.FieldsName._
 import org.apache.spark.sql.hybrid.Const.TablesName.SchemaIndex
-import org.apache.spark.sql.hybrid.Syntax._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types.{LongType, StructType}
@@ -13,7 +12,7 @@ import org.mongodb.scala._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor}
 
-final class HybridJsonProvider
+class HybridJsonProvider
     extends CreatableRelationProvider
     with RelationProvider
     with DataSourceRegister

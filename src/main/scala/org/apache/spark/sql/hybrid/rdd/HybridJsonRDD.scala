@@ -1,9 +1,10 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.rdd
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.hybrid.Const.FieldsName._
+import org.apache.spark.sql.hybrid.{HybridJsonPartition, JsonParser}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.{Partition, TaskContext}
@@ -60,7 +61,7 @@ abstract class HybridJsonRDD(dataType: StructType, filters: Array[Filter])
 }
 
 object HybridJsonRDD {
-
+  
   def parseFileIndexDoc(doc: Document): Option[(String, Long, Map[String, (Int, Int)])] = {
     for {
       path         <- doc.get(Filepath).map(_.asString().getValue)

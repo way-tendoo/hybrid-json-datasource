@@ -4,7 +4,6 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.hybrid.Const.FieldsName._
 import org.apache.spark.sql.hybrid.Const.TablesName.{FileIndex, SchemaIndex}
-import org.apache.spark.sql.hybrid.Syntax.MongoOps
 import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.{Document, MongoClient}
@@ -24,7 +23,7 @@ final class HybridJsonSink extends Serializable {
     val schema    = data.schema.asNullable.json
     val converter = new RowConverter(data.schema)
     FileIO.createDirectoryIfNotExist(ctx.path())
-    data.queryExecution.toRdd.foreachPartition(processPartition(converter, data.schema, ctx))
+    data.queryExecution.toRdd.foreachPartition(writePartition(converter, data.schema, ctx))
     for {
       schemaRef <- FileIO.withClosable(MongoClient(ctx.mongoUri()))(
                     _.find(SchemaIndex, Document(ObjectName -> ctx.objectName()))
@@ -46,7 +45,7 @@ final class HybridJsonSink extends Serializable {
     } yield {}
   }
 
-  private def processPartition(
+  private def writePartition(
     converter: RowConverter,
     schema: StructType,
     ctx: HybridJsonContext

@@ -1,9 +1,7 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.rdd
 
 import org.apache.spark.Partition
-import org.apache.spark.sql.hybrid.Const.FieldsName._
-import org.apache.spark.sql.hybrid.Const.TablesName._
-import org.apache.spark.sql.hybrid.Syntax.MongoOps
+import org.apache.spark.sql.hybrid.{FileIO, HybridJsonContext, HybridJsonPartition}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.mongodb.scala.MongoClient

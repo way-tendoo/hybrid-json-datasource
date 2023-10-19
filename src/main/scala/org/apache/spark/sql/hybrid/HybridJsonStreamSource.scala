@@ -4,7 +4,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.streaming.{Offset, Source}
 import org.apache.spark.sql.hybrid.Const.FieldsName.{CommitMillis, ObjectName}
 import org.apache.spark.sql.hybrid.Const.TablesName.FileIndex
-import org.apache.spark.sql.hybrid.Syntax.MongoOps
+import org.apache.spark.sql.hybrid.rdd.{HybridJsonRDD, StreamHybridJsonRDD}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.mongodb.scala.MongoClient

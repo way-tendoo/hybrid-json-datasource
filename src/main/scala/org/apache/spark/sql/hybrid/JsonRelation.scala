@@ -5,7 +5,7 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SQLContext, SparkSession}
 
-final class JsonRelation(dataType: StructType, ctx: HybridJsonContext)
+class JsonRelation(dataType: StructType, ctx: HybridJsonContext)
     extends BaseRelation
     with PrunedFilteredScan {
 
