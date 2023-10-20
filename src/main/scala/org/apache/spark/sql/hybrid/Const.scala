@@ -26,4 +26,8 @@ object Const {
     val MongoUri = "MONGO_URI"
   }
 
+  object TimeZone {
+    val UTC = "UTC"
+  }
+
 }

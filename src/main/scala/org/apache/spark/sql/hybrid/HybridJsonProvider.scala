@@ -3,6 +3,9 @@ package org.apache.spark.sql.hybrid
 import org.apache.spark.sql.execution.streaming.{Sink, Source}
 import org.apache.spark.sql.hybrid.Const.FieldsName._
 import org.apache.spark.sql.hybrid.Const.TablesName.SchemaIndex
+import org.apache.spark.sql.hybrid.sink.HybridJsonStreamSink
+import org.apache.spark.sql.hybrid.source.HybridJsonStreamSource
+import org.apache.spark.sql.hybrid.util.Utils
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types.{LongType, StructType}
@@ -18,8 +21,7 @@ class HybridJsonProvider
     with DataSourceRegister
     with StreamSinkProvider
     with StreamSourceProvider
-    with SchemaRelationProvider
-    with Serializable {
+    with SchemaRelationProvider {
 
   @transient implicit val ec: ExecutionContextExecutor = ExecutionContext.global
 
@@ -29,20 +31,18 @@ class HybridJsonProvider
     params: Map[String, String],
     data: DataFrame
   ): BaseRelation = {
-    val ctx = HybridJsonContext(params)
-    new HybridJsonSink().write(data, ctx)
     EmptyRelation()
   }
 
   override def createRelation(sqlContext: SQLContext, params: Map[String, String]): BaseRelation = {
     val ctx    = HybridJsonContext(params)
     val schema = inferSchema(ctx)
-    new JsonRelation(schema, ctx)
+    new HybridJsonRelation(schema, ctx)
   }
 
   override def createRelation(sqlContext: SQLContext, params: Map[String, String], schema: StructType): BaseRelation = {
     val ctx = HybridJsonContext(params)
-    new JsonRelation(schema, ctx)
+    new HybridJsonRelation(schema, ctx)
   }
 
   override def sourceSchema(
@@ -77,13 +77,13 @@ class HybridJsonProvider
   }
 
   private def inferSchema(context: HybridJsonContext): StructType = {
-    val schemaRefs = FileIO
-      .withClosable(MongoClient(context.mongoUri()))(_.find(SchemaIndex, Document(ObjectName -> context.objectName())))
+    val schemaRefs = Utils
+      .withClosable(MongoClient(context.mongoUri))(_.find(SchemaIndex, Document(ObjectName -> context.objectName())))
       .map(_.get(SchemaRef).map(_.asString().getValue))
       .toFuture()
       .map(_.flatMap(_.toSeq))
-    val schema = new StructType().add(s"__$CommitMillis", LongType)
-    Await.result(schemaRefs, 10.seconds).map(StructType.fromString).foldLeft(schema) {
+    val initSchema = new StructType().add(s"__$CommitMillis", LongType)
+    Await.result(schemaRefs, 10.seconds).map(StructType.fromString).foldLeft(initSchema) {
       case (acc, schema) => acc.merge(schema)
     }
   }

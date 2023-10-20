@@ -1,8 +1,7 @@
 package org.apache.spark.sql.hybrid
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.hybrid.parser.JsonParser
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
@@ -24,10 +23,9 @@ class JsonParserSpec extends AnyFlatSpec with should.Matchers {
   val rawString: String      = """ { "foo": 0, "bar" : "hello world" } """
 
   "Parser" should s"parse $rawString" in {
-    val IsStreaming: Boolean       = false
-    val row: Iterator[InternalRow] = jsonParser.toRow(Iterator(rawString))
-    val rowsRdd: RDD[InternalRow]  = spark.sparkContext.parallelize(row.toList)
-    val df: DataFrame              = spark.internalCreateDataFrame(rowsRdd, schema, IsStreaming)
+    val row     = jsonParser.toRow(Iterator(rawString))
+    val rowsRdd = spark.sparkContext.parallelize(row.toList)
+    val df      = spark.internalCreateDataFrame(rowsRdd, schema, isStreaming = false)
     df.show
     df.printSchema
   }

@@ -1,4 +1,4 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.model
 
 import org.apache.spark.sql.execution.streaming.Offset
 
