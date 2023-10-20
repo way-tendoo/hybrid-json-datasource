@@ -10,6 +10,7 @@ import org.apache.spark.sql.hybrid.rdd.{HybridJsonRDD, StreamHybridJsonRDD}
 import org.apache.spark.sql.hybrid.util.Utils
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.mongodb.scala.FindObservable
 import org.mongodb.scala.bson.Document
 import org.mongodb.scala.model.Filters.{and, gt, lte}
 import org.mongodb.scala.model.Sorts.{descending, orderBy}
@@ -33,6 +34,7 @@ class HybridJsonStreamSource(dataType: StructType, ctx: HybridJsonContext) exten
       .head()
     Await.result(lastOffset, 10.seconds).map(HybridJsonOffset)
   }
+
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
     val endOffsetCommitMillis = end.json().toLong
     val files = start match {
