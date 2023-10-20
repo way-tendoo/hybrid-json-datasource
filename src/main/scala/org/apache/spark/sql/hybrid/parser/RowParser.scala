@@ -1,20 +1,17 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.parser
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.json.{JSONOptions, JacksonGenerator}
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.catalyst.json.JacksonGenerator
+import org.apache.spark.sql.hybrid.util.JSONOptions
 import org.apache.spark.sql.types.StructType
 
 import java.io.CharArrayWriter
-import java.util.TimeZone
 
-final class RowConverter(dataType: StructType) extends Serializable {
-
-  private val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)
+class RowParser(dataType: StructType) {
 
   def toJsonString(input: Iterator[InternalRow]): Iterator[String] = {
     val writer     = new CharArrayWriter()
-    val jacksonGen = new JacksonGenerator(dataType, writer, emptyOptions)
+    val jacksonGen = new JacksonGenerator(dataType, writer, JSONOptions.empty)
 
     new Iterator[String] {
       override def hasNext: Boolean = input.hasNext

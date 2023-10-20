@@ -1,16 +1,19 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.rdd
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.hybrid.Const.FieldsName._
+import org.apache.spark.sql.hybrid.model.HybridJsonPartition
+import org.apache.spark.sql.hybrid.parser.JsonParser
+import org.apache.spark.sql.hybrid.rdd.HybridJsonRDD.applyPrunedFilters
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.{Partition, TaskContext}
+import org.apache.spark.{ Partition, TaskContext }
 import org.mongodb.scala.bson.Document
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor }
 import scala.io.Source.fromFile
 
 abstract class HybridJsonRDD(dataType: StructType, filters: Array[Filter])
@@ -18,10 +21,28 @@ abstract class HybridJsonRDD(dataType: StructType, filters: Array[Filter])
 
   @transient implicit val ec: ExecutionContextExecutor = ExecutionContext.global
 
-  override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
-    val jsonPartition = split.asInstanceOf[HybridJsonPartition]
-    val columnStats   = jsonPartition.columnStats
-    val maybeProcessedPartition = filters.forall {
+  override def compute(partition: Partition, context: TaskContext): Iterator[InternalRow] = {
+    val jsonPartition         = partition.asInstanceOf[HybridJsonPartition]
+    val columnStats           = jsonPartition.columnStats
+    val canProcessedPartition = applyPrunedFilters(filters, columnStats)
+    if (canProcessedPartition) {
+      val filepath = jsonPartition.filepath
+      val fileRef  = fromFile(filepath)
+      val parser   = new JsonParser(dataType)
+      parser.toRow(fileRef.getLines()).map { ir =>
+        dataType.headOption
+          .filter(_.name == s"__$CommitMillis")
+          .foreach(_ => ir.setLong(0, jsonPartition.commitMillis))
+        ir
+      }
+    } else Iterator.empty
+  }
+}
+
+object HybridJsonRDD {
+
+  def applyPrunedFilters(filters: Array[Filter], columnStats: Map[String, (Int, Int)]): Boolean = {
+    filters.forall {
       case EqualTo(attribute, value) =>
         columnStats.get(attribute).exists {
           case (max, min) => value.asInstanceOf[Int] <= max && value.asInstanceOf[Int] >= min
@@ -44,24 +65,9 @@ abstract class HybridJsonRDD(dataType: StructType, filters: Array[Filter])
         }
       case _ => true
     }
-    if (maybeProcessedPartition) {
-      val filepath = jsonPartition.filepath
-      val fileRef  = fromFile(filepath)
-      val parser   = new JsonParser(dataType)
-      val lines    = fileRef.getLines()
-      parser.toRow(lines).map { ir =>
-        dataType.headOption
-          .filter(_.name == s"__$CommitMillis")
-          .foreach(_ => ir.setLong(0, jsonPartition.commitMillis))
-        ir
-      }
-    } else Iterator.empty
   }
-}
 
-object HybridJsonRDD {
-
-  def parseFileIndexDoc(doc: Document): Option[(String, Long, Map[String, (Int, Int)])] = {
+  def parseFileIndex(doc: Document): Option[(String, Long, Map[String, (Int, Int)])] = {
     for {
       path         <- doc.get(Filepath).map(_.asString().getValue)
       commitMillis <- doc.get(CommitMillis).map(_.asNumber().longValue())

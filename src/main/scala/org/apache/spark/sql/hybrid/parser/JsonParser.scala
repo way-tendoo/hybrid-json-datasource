@@ -1,23 +1,17 @@
-package org.apache.spark.sql.hybrid
+package org.apache.spark.sql.hybrid.parser
 
 import com.fasterxml.jackson.core.JsonFactory
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.json.{CreateJacksonParser, JSONOptions, JacksonParser}
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.catalyst.json.{CreateJacksonParser, JacksonParser}
 import org.apache.spark.sql.execution.datasources.FailureSafeParser
+import org.apache.spark.sql.hybrid.util.JSONOptions
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.types.UTF8String
 
-import java.util.TimeZone
-
-final class JsonParser(schema: StructType) extends Serializable {
-
-  private val jsonParser = {
-    val emptyOptions = new JSONOptions(CaseInsensitiveMap(Map.empty), TimeZone.getTimeZone("UTC").getID)
-    new JacksonParser(schema, emptyOptions)
-  }
+class JsonParser(schema: StructType) {
 
   def toRow(input: Iterator[String]): Iterator[InternalRow] = {
+    val jsonParser = new JacksonParser(schema, JSONOptions.empty)
     val parser = new FailureSafeParser[String](
       input =>
         jsonParser

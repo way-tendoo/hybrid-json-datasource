@@ -7,7 +7,6 @@ object Const {
     val ObjectName   = "objectName"
     val CommitMillis = "commitMillis"
     val SchemaRef    = "schemaRef"
-    val MongoUri     = "mongoUri"
     val ColumnStats  = "columnStats"
     val Name         = "name"
     val Min          = "min"
@@ -21,6 +20,14 @@ object Const {
 
   object Database {
     val IndexStore = "index_store"
+  }
+
+  object EnvVars {
+    val MongoUri = "MONGO_URI"
+  }
+
+  object TimeZone {
+    val UTC = "UTC"
   }
 
 }
