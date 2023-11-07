@@ -8,8 +8,7 @@ object EmptyRelation {
   def apply(): BaseRelation = {
     new BaseRelation {
       override def sqlContext: SQLContext = null
-
-      override def schema: StructType = null
+      override def schema: StructType     = null
     }
   }
 }

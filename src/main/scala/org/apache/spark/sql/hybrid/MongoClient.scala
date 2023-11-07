@@ -1,24 +1,25 @@
 package org.apache.spark.sql.hybrid
 
 import org.apache.spark.sql.hybrid.Const.Database.IndexStore
-import org.mongodb.scala.{Completed, Document, FindObservable, MongoClient => NativeMongoClient }
+import org.mongodb.scala.{ Document, FindObservable, MongoClient => NativeMongoClient }
+import Syntax._
 
 import java.io.Closeable
-import scala.concurrent.Future
 
 case class MongoClient(private val native: NativeMongoClient) extends Closeable {
 
-  def insertOne(table: String, document: Document, database: String = IndexStore): Future[Completed] = {
+  def insertOne(table: String, entity: Document): Unit = {
     native
-      .getDatabase(database)
+      .getDatabase(IndexStore)
       .getCollection(table)
-      .insertOne(document)
+      .insertOne(entity)
       .head()
+      .await()
   }
 
-  def find(table: String, expr: Document, database: String = IndexStore): FindObservable[Document] = {
+  def find(table: String, expr: Document): FindObservable[Document] = {
     native
-      .getDatabase(database)
+      .getDatabase(IndexStore)
       .getCollection(table)
       .find(expr)
   }
@@ -31,5 +32,3 @@ case class MongoClient(private val native: NativeMongoClient) extends Closeable 
 object MongoClient {
   def apply(mongoUri: String): MongoClient = MongoClient(NativeMongoClient(mongoUri))
 }
-
-

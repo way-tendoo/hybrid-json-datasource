@@ -1,1 +1,1 @@
-org.apache.spark.sql.hybrid.HybridJsonProvider
+org.apache.spark.sql.hybrid.HybridJSONProvider

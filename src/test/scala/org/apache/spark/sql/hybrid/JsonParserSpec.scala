@@ -1,32 +1,27 @@
 package org.apache.spark.sql.hybrid
 
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.hybrid.parser.JsonParser
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{ IntegerType, StringType, StructField, StructType }
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
 
-class JsonParserSpec extends AnyFlatSpec with should.Matchers {
+class JsonParserSpec extends AnyFlatSpec with should.Matchers with TestSparkSession {
 
-  val spark: SparkSession =
-    SparkSession
-      .builder()
-      .master("local[1]")
-      .appName("test")
-      .getOrCreate()
-
-  val schema: StructType =
+  val Schema: StructType =
     StructType {
-      StructField("foo", IntegerType) :: StructField("bar", StringType) :: Nil
+      StructField("firstName", StringType) :: StructField("lastName", StringType) :: StructField("age", IntegerType) :: Nil
     }
-  val jsonParser: JsonParser = new JsonParser(schema)
-  val rawString: String      = """ { "foo": 0, "bar" : "hello world" } """
 
-  "Parser" should s"parse $rawString" in {
-    val row     = jsonParser.toRow(Iterator(rawString))
-    val rowsRdd = spark.sparkContext.parallelize(row.toList)
-    val df      = spark.internalCreateDataFrame(rowsRdd, schema, isStreaming = false)
-    df.show
-    df.printSchema
+  val RawUserJsonString: String = """ { "firstName": "Igor", "lastName": "Ivanov", "age": 31 } """
+
+  "JsonParser" should s"parse $RawUserJsonString" in {
+    val parser = new JsonParser(Schema)
+    val row    = parser.toRow(Iterator(RawUserJsonString))
+    val rdd    = spark.sparkContext.parallelize(row.toList)
+    val user   = spark.internalCreateDataFrame(rdd, Schema, isStreaming = false).collect().head.toSeq
+
+    user.head shouldBe "Igor"
+    user(1) shouldBe "Ivanov"
+    user(2) shouldBe 31
   }
 }
